@@ -1,1 +1,59 @@
-.cal .between a.issue, p.cal.legend .between {background: url(../images/cal_between.png) no-repeat -1px -2px; padding-left:16px;}
+.cal .between a.issue,
+p.cal.legend .between {
+    background: url("../images/cal_between.png") no-repeat -1px -2px;
+    padding-left: 16px;
+}
+
+div.issue {
+    background: #ffffdd;
+    padding: 6px;
+    margin-bottom: 6px;
+    border: 1px solid #d7d7d7;
+    border-radius: 3px;
+}
+
+.cal .starting a.issue,
+p.cal.legend .starting {
+    background: url("../images/bullet_go.png") no-repeat -1px -2px;
+    padding-left: 16px;
+}
+
+.cal .ending a.issue,
+p.cal.legend .ending {
+    background: url("../images/bullet_end.png") no-repeat -1px -2px;
+    padding-left: 16px;
+}
+
+.cal .starting.ending a.issue,
+p.cal.legend .starting.ending {
+    background: url("../images/bullet_diamond.png") no-repeat -1px -2px;
+    padding-left: 16px;
+}
+
+.cal li div.issue a.issue,
+a:link,
+a:visited {
+    color: #169;
+    text-decoration: none;
+}
+table.cal .starting a::before,
+ul.cal .starting a::before,
+p.cal.legend .starting::before {
+    content: "";
+    transform: none;
+    text-align: initial;
+}
+table.cal .ending a::before,
+ul.cal .ending a::before,
+p.cal.legend .ending::before {
+    content: "";
+    transform: none;
+    text-align: initial;
+}
+table.cal .starting.ending a::before,
+ul.cal .starting.ending a::before,
+p.cal.legend .starting.ending::before {
+    content: "";
+    transform: none;
+    text-align: initial;
+}

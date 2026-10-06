@@ -64,6 +64,17 @@ class CalendarEventsDaily::CalendarsControllerTest < Redmine::ControllerTest
     end
   end
 
+  def test_show_adds_between_to_the_legend_and_loads_the_stylesheet
+    get :show, :params => {:project_id => 1, :year => 2026, :month => 10}
+    assert_response :success
+
+    assert_select 'p.legend.cal span.between', :text => 'issue active on this day' do
+      assert_select 'svg use[href*=?][href$=?]', 'plugin_assets/calendar_events_daily/icons', '#icon--between'
+    end
+    assert_select 'p.legend.cal span.starting:not(.ending)', :count => 1
+    assert_select 'head link[rel=stylesheet][href*=?]', 'plugin_assets/calendar_events_daily/calendar_events_daily'
+  end
+
   def test_show_with_invalid_query_has_no_calendar_and_no_legend
     get :show, :params => {:project_id => 1, :set_filter => 1,
                            :f => ['start_date'], :op => {'start_date' => '='}, :v => {'start_date' => ['not a date']}}

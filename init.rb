@@ -10,5 +10,7 @@ Redmine::Plugin.register :calendar_events_daily do
 
   RedmineApp::Application.config.after_initialize do
     Redmine::Helpers::Calendar.prepend CalendarEventsDaily::CalendarHelperPatch
+    # Registers the legend hook also where the app is not eager loaded (development, test)
+    CalendarLegendHook::LegendHook
   end
 end

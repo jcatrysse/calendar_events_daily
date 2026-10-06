@@ -18,16 +18,26 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Plugin id | `calendar_events_daily` |
 | GEOxyz runs today | `master` |
 | Upstream | ablidadev/calendar_events_daily master @ 9b44827 (2024-01-16); bokos/redmine_calendar_events_daily master @ d2f2a11 (2024-01-16) |
-| Runs on Redmine 7 as is | DEELS |
+| Runs on Redmine 7 as is | DEELS (master); this branch: JA |
 | Upstream sync | UPSTREAM DOOD |
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 2 |
-| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz + latest 7.0-stable), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16 and MariaDB 10.11 |
-| Branch head when this file was written | `4880947` |
+| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz @ 8067e23), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 and MariaDB 10.11.14; also Redmine 6.1-stable (tests) and 5.1-stable with master (before pictures, Ruby 3.2.3) |
+| Migration session | 2026-10-06, done: work list complete, tests green on PostgreSQL and MariaDB, e2e green on both, OpenAI review without findings |
+| Plugin version | 0.0.3, `requires_redmine 6.0.0` (was 0.0.2, 5.1.0) |
 
 ## Already on this branch
 
-- nothing: the branch equals the branch GEOxyz runs today.
+| commit | what |
+|---|---|
+| `096e277` | Test kit: `test_setup.sh` created no PostgreSQL role when run as root (`$SUDO -u postgres` with empty `$SUDO`) |
+| `f63d833` | Calendar partial rebuilt on the 7.0-stable core partial (today indicator, SVG markers, version icon), "between" SVG icon from a plugin sprite, PNG markers and `::before` overrides removed, stylesheet scoped to the calendar (global link colour rule gone), `requires_redmine 6.0.0`; first tests of the plugin |
+| `b5b3f12` | "issue active on this day" in the calendar legend through `view_calendars_show_bottom`; the head hook that loaded an empty script and an inline variable on every page is removed |
+| `92bb139` | `events=` indexes only the days the calendar shows (an issue due years ahead filled the index with every day until then) |
+| `be885ac` | Legend reads as one block |
+| `04bd27a` | End-to-end scenarios and seed, screenshots (PostgreSQL) |
+| `4c9f99e` | E2E evidence on MariaDB, together with redmine_people and redmine_agile, before pictures on 5.1 |
+| `ada177b` | Test pinning how versions span days (kept, open question), README requirement |
 
 ## Work list for the migration session
 
@@ -35,29 +45,121 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 
 **Open items from the analysis** (Dutch; where they conflict with a decision or a priority item above, those win)
 
-1. Rebuild the common/_calendar.html.erb override on the 7.0 partial: restore span.day-value (today indicator #43728), choose SVG or PNG markers (not both), restore sprite_icon 'package'
-2. Remove the global a:link/a:visited colour rule from the plugin CSS
-3. Empty calendar_events_daily.js loaded on every page; between legend never added
+1. DONE `f63d833`. Rebuild the common/_calendar.html.erb override on the 7.0 partial: restore span.day-value (today indicator #43728), choose SVG or PNG markers (not both), restore sprite_icon 'package'.
+   The partial is now the 7.0-stable core partial verbatim plus the `between` class and its marker, so a
+   future core change is a plain diff. Markers: core SVG (`bullet-go`, `bullet-end`, `bullet-go-end`);
+   "between" gets `icon--between` from `assets/images/icons.svg` (Tabler "arrows-horizontal", MIT, the
+   icon set core uses; it is the same ⇔ idea as the old `cal_between.png`). Choice recorded under
+   "Open questions for Jan". Tests: `calendars_controller_test.rb`, `my_controller_test.rb`.
+2. DONE `f63d833`. Remove the global a:link/a:visited colour rule from the plugin CSS.
+   It recoloured every link on calendar pages and, through `text-decoration: none`, cancelled core's
+   line-through on closed issues in the calendar (seen in `docs/e2e/before/before-closed-issue.png`).
+   Test: `calendar_events_daily_assets_test.rb` (every selector must be scoped to `.cal`); e2e
+   `failure-paths-closed-issue.png`.
+3. DONE `b5b3f12`. Empty calendar_events_daily.js loaded on every page; between legend never added.
+   Script and head hook removed; the legend line is rendered server side with the existing locale key
+   (en, de). Tests: `calendar_events_daily_assets_test.rb`, `calendars_controller_test.rb`.
+
+Found during the session:
+
+- DONE `92bb139`. `events=` walked every day from start to due date; clamped to the displayed range. Test: `calendar_helper_patch_test.rb`.
+- Not changed, recorded: see "Findings outside this plugin" and "Open questions for Jan".
 
 **Checks**
 
-4. Run the plugin's whole test suite on Redmine 7.0-stable-GEOxyz with PostgreSQL AND MariaDB, and once on 5.1-stable if the branch is meant to stay 5.1-compatible.
-5. Check Redmine 7 webhooks against this plugin (see "Rules"), and note the result here even if nothing is needed.
-6. Verify every feature of the plugin by hand on a running Redmine 7 (screenshots).
+4. DONE. Plugin tests on Redmine 7.0-stable-GEOxyz: PostgreSQL 16.15 `18 runs, 96 assertions, 0 failures, 0 errors, 0 skips`;
+   MariaDB 10.11.14 `18 runs, 96 assertions, 0 failures, 0 errors, 0 skips`. Redmine 6.1-stable, PostgreSQL:
+   `17 runs, 76 assertions, 0 failures` (before the version test was added). 5.1: not supported any more
+   (`sprite_icon` does not exist there); master stays the 5.1 version. Every fix's test was run against
+   master's code first: 9 failures there, as intended. The plugin has no migrations (nothing to roll back);
+   eager load OK (`Rails.application.eager_load!`, production server boot), hook registered once.
+5. DONE, nothing needed. Webhooks: the plugin changes no issue data and no API output; it only changes how the
+   calendar draws issues. Core webhook payloads are unaffected.
+6. DONE. Every function end to end on a running Redmine 7 in production mode, see "Inventory of functions".
 
 ## GEOxyz changes to review or re-apply
 
 These GEOxyz commits are on the branch GEOxyz runs today and therefore on this branch. Review each one against the code it now sits on (upstream merges and Redmine 7 core): drop it if upstream or core now does the same, rewrite it if it is not up to the quality rules below (tests, I18n, security, portability), keep it otherwise. Record the verdict per commit in this file.
 
-| commit | date | subject |
-|---|---|---|
-| `a7d61a5` | 2025-04-26 | * GUI correction * Correct references to plugin name |
+| commit | date | subject | verdict |
+|---|---|---|---|
+| `a7d61a5` | 2025-04-26 | * GUI correction * Correct references to plugin name | Plugin name in `stylesheet_link_tag`/`javascript_include_tag`: kept (correct). Compact yellow issue boxes (`div.issue` padding 6px, border): kept, but scoped to `.cal div.issue` (core 7 gives every `div.issue` 16px padding, which would make calendar cells huge). PNG markers and the `::before` overrides: dropped, Redmine 7 draws the markers as SVG (both together gave double markers in the legend). Global `a:link, a:visited` rule: dropped (work list item 2). |
 
 ## After the upgrade (production)
 
 Actions the person doing the upgrade must take, or know about, for this plugin:
 
-- None known. Add here what the session finds.
+- Deploy branch `redmine70-migration` (plugin version 0.0.3); no migrations, no settings, no cron.
+- Redmine 5.1 cannot run 0.0.3 (`requires_redmine 6.0.0` stops the boot with a clear message), so upgrade
+  the plugin together with Redmine.
+- Precompile or let Propshaft serve the plugin assets as usual (`assets/images/icons.svg`,
+  `assets/stylesheets/calendar_events_daily.css`); the old PNGs and `calendar_events_daily.js` are gone,
+  a stale copy under `public/plugin_assets/calendar_events_daily/` can be deleted.
+- What users will see: the Redmine 7 markers (circle arrows, diamond) instead of the green/red PNG arrows,
+  a ↔ icon on days between start and due date, a legend line "issue active on this day", the blue circle
+  around today, and closed issues struck through in the calendar like everywhere else in Redmine.
+
+## Inventory of functions
+
+Run 2026-10-06 against `./.codex/start_server.sh` (production mode). PostgreSQL run in `docs/e2e/`, MariaDB run in
+`docs/e2e/mariadb/` (same scenarios, 0 problems), with redmine_people + redmine_agile in `docs/e2e/together/`, before
+pictures (master on 5.1) in `docs/e2e/before/`. `./.codex/e2e.sh`: smoke 10 screenshots 0 problems, core flows 6/0,
+plugin scenarios 5 scripts, 19 screenshots, 0 problems, on both databases.
+
+| function | how a user reaches it | scenario | screenshots |
+|---|---|---|---|
+| Issue shown on every day between start and due date, with a "between" marker; start/end/one-day markers; issues with only one date only on that date | Project > Calendar | `test/e2e/project-calendar.mjs` | `project-calendar-manager-month.png`, `project-calendar-between-entry.png` |
+| Legend line "issue active on this day" | Project > Calendar, below the calendar | `project-calendar.mjs` | `project-calendar-manager-month.png` |
+| Redmine 7 today indicator and version icon kept | Project > Calendar | `project-calendar.mjs` | `project-calendar-manager-month.png` |
+| Issue due years ahead: between on every later day of its first month | Project > Calendar | `project-calendar.mjs` | `project-calendar-manager-month.png`, `project-calendar-next-month-limitation.png` (limitation, below) |
+| Same calendar per role: member without extra rights, non-member on public and private project, anonymous | Project > Calendar | `project-calendar.mjs` | `project-calendar-reporter-month.png`, `project-calendar-outsider-private-refused.png` (403), `project-calendar-anonymous-private-login.png` |
+| Cross-project calendar with project prefix, private issues only for members | Top menu > Calendar (`/issues/calendar`) | `global-calendar.mjs` | `global-calendar-admin.png`, `global-calendar-outsider.png` |
+| My page week calendar block | My page, block "Calendar" | `my-page-calendar.mjs` | `my-page-calendar-manager.png`, `my-page-calendar-block.png`, `my-page-calendar-outsider.png` (empty block) |
+| Tooltip and context menu on a between entry, edit through the menu, greyed actions for a reporter | Hover / right-click an entry | `context-menu.mjs` | `context-menu-tooltip.png`, `context-menu-manager-menu.png`, `context-menu-manager-priority-changed.png`, `context-menu-reporter-menu.png` |
+| Failure paths: calendar module off (403), role without view_calendar (403), invalid filter (error, no calendar, no legend), bad month/year, closed issue struck through, no plugin asset on other pages, assets served | Project > Calendar with these conditions | `failure-paths.mjs` | `failure-paths-module-off.png`, `failure-paths-no-view-calendar.png`, `failure-paths-invalid-query.png`, `failure-paths-bad-month.png`, `failure-paths-closed-issue.png`, `failure-paths-reporter-public.png` |
+
+The plugin has no permissions, settings, routes, API, mail, rake tasks or cron of its own; it only changes
+how core's calendar (project, cross-project, My page) draws issues. Every screenshot was opened and checked.
+
+## Findings outside this plugin (not changed here)
+
+- Core: the calendar only fetches issues that start or end in the displayed range (`CalendarsController#show`,
+  `MyHelper#render_calendar_block`), so an issue that spans a whole month is not shown in that month, also not by
+  this plugin (`project-calendar-next-month-limitation.png`). Same on master and upstream. See open question 2.
+- Core 7.0: on the cross-project calendar a version is drawn as "E2E project -" wrapped next to the link
+  (`span.icon.icon-package` is a flex box); same markup as core, `global-calendar-admin.png`.
+- redmineup gem 1.1.13 (used by redmine_agile and redmine_people): `redmineup.css`, `calendars.css` and `money.css`
+  still carry the 5.1 calendar rules (`.cal .starting a.issue { background: url(bullet_go.png); padding-left: 16px }`),
+  so on Redmine 7 every page asks for `/assets/plugin_assets/redmineup/bullet_*.png` (404) and core's start/end
+  markers and legend get a 16px indent (`docs/e2e/together/project-calendar-manager-month.png`). For the migration
+  of those plugins / the gem, not for this one.
+- redmine_agile or redmine_people (redmine70-migration): `linkableAttributeFields is not defined` on the issue page
+  as reporter (`docs/e2e/together/core.md`).
+- redmine_people patches `Redmine::Helpers::Calendar` too (`custom_events=`); it does not go through this plugin's
+  `events=`, and its own calendar test passes with both installed (`3 runs, 22 assertions, 0 failures`).
+
+## Review
+
+- Own review of the whole diff: one point, the version behaviour (open question 1); nothing else.
+- OpenAI review (`gpt-5`, range `8104c28..ada177b`): no findings, `docs/reviews/openai-2026-10-06-ada177b.md`.
+
+## Open questions for Jan
+
+1. **Versions on the days before their date.** `events=` also indexes versions from `Version#start_date` (the earliest
+   start date of their issues) to their date, so a version is drawn on every one of those days. That has been so
+   since upstream 0.0.1; the README speaks of issues only. Options: (a) keep, (b) issues only (one line,
+   `next unless event.is_a?(Issue)`). Built: (a), pinned by a test. Recommendation: (b), a version is a milestone,
+   and every day of a long version line clutters the calendar.
+2. **Issues spanning a whole month.** Core fetches only issues that start or end in view, so a long issue
+   disappears from the months in between, which is exactly the case this plugin is for. Options: (a) leave it,
+   (b) patch `CalendarsController#show` and `MyHelper#render_calendar_block` to fetch issues overlapping the range
+   (`start_date <= enddt AND due_date >= startdt`). Built: (a). Recommendation: (b) as a separate change with tests.
+3. **Marker style.** Built: Redmine 7 SVG markers and a ↔ SVG for "between", instead of the PNG arrows of
+   `a7d61a5`. Keeping the PNGs would mean hiding core's SVGs in cells and legend by CSS. Recommendation: keep SVG.
+4. **Redmine 5.1.** This branch needs Redmine 6.0+; master stays the 5.1 version. Recommendation: fine, GEOxyz
+   moves to 7.0.
+
+Not testable here: nothing; the plugin has no external integration.
 
 ## How to test
 

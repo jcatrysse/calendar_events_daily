@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!-- Icon "between" is Tabler "arrows-horizontal" (MIT, https://tabler.io/icons), the set Redmine's own icons come from. -->
+<svg xmlns="http://www.w3.org/2000/svg" class="icon--sprite">
+  <defs>
+    <symbol viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" id="icon--between">
+      <path d="M7 8l-4 4l4 4"/>
+      <path d="M17 8l4 4l-4 4"/>
+      <path d="M3 12l18 0"/>
+    </symbol>
+  </defs>
+</svg>

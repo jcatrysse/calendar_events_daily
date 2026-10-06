@@ -9,7 +9,8 @@ module CalendarEventsDaily
       super
       @events.each do |event|
         next if event.start_date.nil? || event.due_date.nil?
-        (event.start_date..event.due_date).each do |d|
+        # Only the days this calendar shows: an issue due years ahead would otherwise fill the hash with every day until then
+        ([event.start_date, @startdt].max..[event.due_date, @enddt].min).each do |d|
           @events_by_days[d] << event
         end
       end

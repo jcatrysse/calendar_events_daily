@@ -41,6 +41,19 @@ class CalendarEventsDaily::CalendarHelperPatchTest < ActiveSupport::TestCase
     assert_equal [], @calendar.events_on(Date.new(2026, 10, 8))
   end
 
+  def test_version_is_shown_from_the_start_of_its_issues_to_its_date
+    # behaviour since upstream 0.0.1, kept: Version#start_date is the earliest start date of its issues
+    # (open question for Jan in docs/REDMINE7-MIGRATION.md)
+    version = Version.new(:name => 'v', :effective_date => Date.new(2026, 10, 7))
+    version.instance_variable_set(:@start_date, Date.new(2026, 10, 5))
+    @calendar.events = [version]
+
+    (Date.new(2026, 10, 5)..Date.new(2026, 10, 7)).each do |day|
+      assert_equal [version], @calendar.events_on(day), "missing on #{day}"
+    end
+    assert_equal [], @calendar.events_on(Date.new(2026, 10, 4))
+  end
+
   def test_issue_is_listed_once_per_day
     issue = Issue.new(:subject => 'one day', :start_date => Date.new(2026, 10, 5), :due_date => Date.new(2026, 10, 5))
     @calendar.events = [issue]

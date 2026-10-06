@@ -21,6 +21,9 @@ This plugin will show issues on days between end and start date too.
 
 ## Installation
 
+Requires Redmine 6.0 or higher (the calendar uses Redmine's SVG icons); tested on Redmine 7.0 and 6.1.
+For Redmine 5.1 use version 0.0.2.
+
 To install the plugin, either clone it or download it and xtract the directory into ur plugins directory in your redmine dir.
 
     git clone https://github.com/ablidadev/calendar_events_daily

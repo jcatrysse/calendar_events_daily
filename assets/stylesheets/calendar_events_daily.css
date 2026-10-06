@@ -5,3 +5,11 @@
     border: 1px solid #d7d7d7;
     border-radius: 3px;
 }
+
+/* the "between" line sits right above the core legend: one legend, not two */
+p.legend.cal.calendar-events-daily {
+    margin-bottom: 0;
+}
+p.legend.cal.calendar-events-daily + p.legend.cal {
+    margin-top: 0;
+}

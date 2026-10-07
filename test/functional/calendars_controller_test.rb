@@ -94,4 +94,55 @@ class CalendarEventsDaily::CalendarsControllerTest < Redmine::ControllerTest
     assert_select 'ul.cal div.issue.between', :text => /Spanning issue/, :count => 3
     assert_select 'ul.cal div.issue', :text => /Private spanning issue/, :count => 0
   end
+
+  def test_show_includes_issue_spanning_the_whole_month
+    Issue.generate!(:project_id => 1, :subject => 'Whole month issue',
+                    :start_date => Date.new(2026, 9, 1), :due_date => Date.new(2026, 12, 31))
+    get :show, :params => {:project_id => 1, :year => 2026, :month => 10}
+    assert_response :success
+
+    # Sunday 27 September to Saturday 31 October: 35 days, all between
+    assert_select 'ul.cal div.issue.between', :text => /Whole month issue/, :count => 35
+    assert_select 'ul.cal div.issue.starting, ul.cal div.issue.ending', :text => /Whole month issue/, :count => 0
+  end
+
+  def test_show_includes_issue_spanning_the_whole_month_on_xhr
+    Issue.generate!(:project_id => 1, :subject => 'Whole month issue',
+                    :start_date => Date.new(2026, 9, 1), :due_date => Date.new(2026, 12, 31))
+    get :show, :params => {:project_id => 1, :year => 2026, :month => 10}, :xhr => true
+    assert_response :success
+
+    assert_select 'ul.cal div.issue.between', :text => /Whole month issue/, :count => 35
+  end
+
+  def test_show_applies_the_query_filters_to_issues_spanning_the_whole_month
+    Issue.generate!(:project_id => 1, :tracker_id => 2, :subject => 'Whole month feature',
+                    :start_date => Date.new(2026, 9, 1), :due_date => Date.new(2026, 12, 31))
+    get :show, :params => {:project_id => 1, :year => 2026, :month => 10, :set_filter => 1,
+                           :f => ['tracker_id'], :op => {'tracker_id' => '='}, :v => {'tracker_id' => ['1']}}
+    assert_response :success
+
+    assert_select 'ul.cal div.issue', :text => /Whole month feature/, :count => 0
+    assert_select 'ul.cal div.issue.between', :text => /Spanning issue/, :count => 3
+  end
+
+  def test_show_does_not_show_whole_month_issues_of_a_private_project_to_a_non_member
+    Issue.generate!(:project_id => 5, :subject => 'Private whole month issue',
+                    :start_date => Date.new(2026, 9, 1), :due_date => Date.new(2026, 12, 31))
+    @request.session[:user_id] = 7 # no membership
+    get :show, :params => {:year => 2026, :month => 10}
+    assert_response :success
+
+    assert_select 'ul.cal div.issue', :text => /Private whole month issue/, :count => 0
+  end
+
+  def test_show_does_not_list_an_issue_twice_with_whole_month_issues
+    Issue.generate!(:project_id => 1, :subject => 'Whole month issue',
+                    :start_date => Date.new(2026, 9, 1), :due_date => Date.new(2026, 12, 31))
+    get :show, :params => {:project_id => 1, :year => 2026, :month => 10}
+    assert_response :success
+
+    # the issue fetched by core (5 to 9 October) is not added a second time
+    assert_select 'ul.cal div.issue', :text => /Spanning issue/, :count => 5
+  end
 end

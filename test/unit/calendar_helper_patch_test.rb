@@ -81,4 +81,15 @@ class CalendarEventsDaily::CalendarHelperPatchTest < ActiveSupport::TestCase
       assert_equal [issue], calendar.events_on(day)
     end
   end
+
+  def test_setting_events_again_replaces_the_index
+    issue = Issue.new(:subject => 'span', :start_date => Date.new(2026, 10, 5), :due_date => Date.new(2026, 10, 9))
+    other = Issue.new(:subject => 'other', :start_date => Date.new(2026, 10, 12), :due_date => Date.new(2026, 10, 14))
+    @calendar.events = [issue]
+    @calendar.events = [issue, other]
+
+    assert_equal [issue], @calendar.events_on(Date.new(2026, 10, 7))
+    assert_equal [other], @calendar.events_on(Date.new(2026, 10, 13))
+    assert_equal 1, @calendar.instance_variable_get(:@events_by_days)[Date.new(2026, 10, 7)].size
+  end
 end

@@ -5,7 +5,12 @@ module CalendarEventsDaily
       @events_by_days = Hash.new {|h,k| h[k] = [] }
     end
 
+    def events
+      @events
+    end
+
     def events=(events)
+      @events_by_days = Hash.new {|h,k| h[k] = [] }
       super
       @events.each do |event|
         next if event.start_date.nil? || event.due_date.nil?

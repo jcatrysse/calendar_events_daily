@@ -24,4 +24,23 @@ class CalendarEventsDaily::MyControllerTest < Redmine::ControllerTest
     # no legend on My page, as in core
     assert_select 'p.legend', 0
   end
+
+  def test_page_calendar_block_includes_issue_spanning_the_whole_week
+    travel_to Date.new(2026, 10, 14)
+    Issue.generate!(:project_id => 1, :subject => 'Whole week issue',
+                    :start_date => Date.new(2026, 10, 1), :due_date => Date.new(2026, 10, 30))
+    # visible to user 2, but in a project user 2 is not a member of: My page leaves it out, as core does
+    Issue.generate!(:project_id => 3, :subject => 'Other project issue',
+                    :start_date => Date.new(2026, 10, 1), :due_date => Date.new(2026, 10, 30))
+    @request.session[:user_id] = 2
+    preferences = User.find(2).pref
+    preferences[:my_page_layout] = {'top' => ['calendar']}
+    preferences.save!
+
+    get :page
+    assert_response :success
+
+    assert_select 'div#block-calendar ul.cal div.issue.between', :text => /Whole week issue/, :count => 7
+    assert_select 'div#block-calendar ul.cal div.issue', :text => /Other project issue/, :count => 0
+  end
 end

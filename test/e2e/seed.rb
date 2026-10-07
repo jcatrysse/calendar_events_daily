@@ -12,10 +12,11 @@ today = Date.today
 month = Date.civil(today.year, today.month, 1)
 week = Redmine::Helpers::Calendar.new(today, :en, :week).startdt
 
-def calendar_issue(project, subject, start_date, due_date, closed: false)
+def calendar_issue(project, subject, start_date, due_date, closed: false, tracker: nil)
   issue = Issue.find_by(project_id: project.id, subject: subject) ||
           Issue.new(project: project, tracker: project.trackers.first, subject: subject, author: User.current,
                     priority: IssuePriority.default || IssuePriority.first)
+  issue.tracker = tracker if tracker
   issue.status ||= issue.tracker.default_status
   issue.start_date = start_date
   issue.due_date = due_date
@@ -32,6 +33,11 @@ calendar_issue(project, 'Calendar long running', month + 19, today >> 36)
 calendar_issue(project, 'Calendar closed span', month + 21, month + 25, closed: true)
 calendar_issue(project, 'Calendar this week', week + 1, week + 20)
 calendar_issue(private_project, 'Calendar private span', month + 4, month + 8)
+# Start before and end after the displayed month (and week): core alone does not fetch these
+calendar_issue(project, 'Calendar whole month bug', month - 10, (month >> 1) + 10)
+calendar_issue(private_project, 'Calendar private whole month', month - 10, (month >> 1) + 10)
+calendar_issue(project, 'Calendar whole month feature', month - 10, (month >> 1) + 10,
+               tracker: project.trackers.where.not(id: project.trackers.first.id).first)
 
 version = Version.find_by(project_id: project.id, name: 'Calendar version') ||
           Version.new(project: project, name: 'Calendar version')

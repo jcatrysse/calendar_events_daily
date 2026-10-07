@@ -33,12 +33,11 @@ c = await cells(t.page, 'Calendar long running');
 check(t, JSON.stringify(c.starting) === '["20"]' && c.between.includes('21') && c.between.includes('31') === (daysInMonth() >= 31) && c.ending.length === 0,
   `long-running issue (due in three years) starts on 20 and is between on every later day in view: ${c.between}`);
 
-// Known limitation, unchanged by the migration: core only fetches issues that start or
-// end in the displayed range, so an issue that spans the whole next month is not there.
+// An issue that neither starts nor ends in the displayed month is fetched too (decision Jan, 2026-10-07)
 await t.go(`${CAL}?year=${nextYear()}&month=${nextMonth()}`);
 c = await cells(t.page, 'Calendar long running');
-check(t, c.between.length === 0, `next month: issue spanning the whole month not fetched by core (known limitation): ${c.between.length} days`);
-await t.shot('next-month-limitation', 'Next month: "Calendar long running" neither starts nor ends in view, so core does not fetch it and it is absent (limitation as on master, recorded in the plan)');
+check(t, c.between.length >= 35 && c.starting.length === 0 && c.ending.length === 0, `next month: long-running issue between on every day in view: ${c.between.length} days`);
+await t.shot('next-month-long-running', 'Next month: "Calendar long running" (started this month, due in three years) is on every day in view as between; before 2026-10-07 core did not fetch it');
 
 await t.login('reporter');
 await t.go(CAL);

@@ -19,7 +19,7 @@ the measured state, the work list and the rules. Work on branch `redmine70-migra
 - Minimal diffs in this plugin's style; no reformatting, no drive-by refactoring.
 - Authorization on every action, `safe_attributes` instead of mass assignment, no SQL from
   params, no secrets in logs, no `html_safe` on user input.
-- PostgreSQL and MySQL/MariaDB both supported; migrations reversible.
+- PostgreSQL 16 only (decided by Jan 2026-10-07; keep SQL portable where it costs nothing); migrations reversible; no code paths only for Redmine 5.1; `prepend`, never `alias_method`, on core methods.
 - I18n for every user-visible string; keep the shipped locales in sync, translated by matching
   existing keys in the same file; no new languages.
 - Compare with Redmine core before patching it: https://github.com/jcatrysse/redmine
@@ -31,7 +31,7 @@ the measured state, the work list and the rules. Work on branch `redmine70-migra
 
 ```sh
 ./.codex/redmine_clone.sh 7.0-stable-GEOxyz      # or 5.1-stable / 6.1-stable / 7.0-stable
-./.codex/test_setup.sh                                 # RMP_DB=mariadb for MariaDB, RMP_PROVISION_DB=0 if a server runs
+./.codex/test_setup.sh                                 # PostgreSQL; RMP_PROVISION_DB=0 if a server runs
 ./.codex/test_plugin.sh                                # minitest + rspec of this plugin
 ```
 

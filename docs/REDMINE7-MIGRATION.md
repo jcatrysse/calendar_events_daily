@@ -4,7 +4,7 @@ Start a Claude Code (or Codex) session on this repository, branch `redmine70-mig
 
 > Read CLAUDE.md and docs/REDMINE7-MIGRATION.md, then carry out the Redmine 7 migration of this
 > plugin as described there, on branch redmine70-migration. That includes the plugin's tests on
-> PostgreSQL and MariaDB, every function exercised end to end on a real running Redmine in a
+> PostgreSQL, every function exercised end to end on a real running Redmine in a
 > browser (with and without permissions, failure paths included) with screenshots you looked at,
 > and an OpenAI review of the diff when OPENAI_API_KEY is set. Report to me in Dutch at the end.
 
@@ -22,8 +22,8 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | Upstream sync | UPSTREAM DOOD |
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 2 |
-| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz @ 8067e23), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 and MariaDB 10.11.14; also Redmine 6.1-stable (tests) and 5.1-stable with master (before pictures, Ruby 3.2.3) |
-| Migration session | 2026-10-06, done: work list complete, tests green on PostgreSQL and MariaDB, e2e green on both, OpenAI review without findings |
+| Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz @ 8067e23), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 (production database of GEOxyz). Earlier runs on MariaDB 10.11.14, Redmine 6.1-stable and 5.1-stable (before pictures) are kept as history |
+| Migration session | 2026-10-06 work list, 2026-10-07 Jan's decisions built: tests green on PostgreSQL alone and with 40 other GEOxyz plugins, e2e green, OpenAI review resolved |
 | Plugin version | 0.0.3, `requires_redmine 6.0.0` (was 0.0.2, 5.1.0) |
 
 ## Already on this branch
@@ -37,7 +37,11 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | `be885ac` | Legend reads as one block |
 | `04bd27a` | End-to-end scenarios and seed, screenshots (PostgreSQL) |
 | `4c9f99e` | E2E evidence on MariaDB, together with redmine_people and redmine_agile, before pictures on 5.1 |
-| `ada177b` | Test pinning how versions span days (kept, open question), README requirement |
+| `ada177b` | Test pinning how versions span days (kept, decided by Jan q1), README requirement |
+| `0fef6f2` | Jan's decisions of 2026-10-07 (docs/DECISIONS-2026-10-07.md) |
+| `65d1a45` | Decision q2: issues that start before and end after the displayed month (calendar) or week (My page) are shown too |
+| `067f37f` | E2E scenario `spanning-issues.mjs`, seed, screenshots (PostgreSQL) |
+| `71befba` | Context-menu scenario robust against other plugins' menu items; e2e run with 40 GEOxyz plugins |
 
 ## Work list for the migration session
 
@@ -63,11 +67,23 @@ In this order: things that break, security, the GEOxyz changes, the open items, 
 Found during the session:
 
 - DONE `92bb139`. `events=` walked every day from start to due date; clamped to the displayed range. Test: `calendar_helper_patch_test.rb`.
-- Not changed, recorded: see "Findings outside this plugin" and "Open questions for Jan".
+- DONE `65d1a45` (decision q2, 2026-10-07). Issues spanning the whole displayed range: `CalendarsController`
+  (prepend on `render`, for `show`) adds the issues of the same query that start before and end after the grid;
+  `MyHelper#render_calendar_block` (prepend) has the same overlap in its condition; `Calendar#events=` rebuilds its
+  index. Tests: `calendars_controller_test.rb` (html, xhr, filter, private project, no duplicates),
+  `my_controller_test.rb` (whole week, non-member project), `calendar_helper_patch_test.rb` (index rebuilt);
+  the four new behaviour tests fail without the change. E2E `spanning-issues.mjs`.
+- General decision `prepend`, never `alias_method`: this plugin only uses `prepend` (Calendar, CalendarsController,
+  MyHelper); no other GEOxyz plugin patches `CalendarsController#show`/`#render` or
+  `MyHelper#render_calendar_block` (checked in all 42 `redmine70-migration` branches).
+- Not changed, recorded: see "Findings outside this plugin".
 
 **Checks**
 
-4. DONE. Plugin tests on Redmine 7.0-stable-GEOxyz: PostgreSQL 16.15 `18 runs, 96 assertions, 0 failures, 0 errors, 0 skips`;
+4. DONE. 2026-10-07, Redmine 7.0-stable-GEOxyz, PostgreSQL 16.15: alone `25 runs, 114 assertions, 0 failures, 0 errors,
+   0 skips`; with 40 other GEOxyz plugins (all `redmine70-migration` branches except redmine_issue_field_visibility and
+   redmine_tint_issues, see findings) `25 runs, 114 assertions, 0 failures, 0 errors, 0 skips`.
+   History, 2026-10-06: PostgreSQL 16.15 `18 runs, 96 assertions, 0 failures, 0 errors, 0 skips`;
    MariaDB 10.11.14 `18 runs, 96 assertions, 0 failures, 0 errors, 0 skips`. Redmine 6.1-stable, PostgreSQL:
    `17 runs, 76 assertions, 0 failures` (before the version test was added). 5.1: not supported any more
    (`sprite_icon` does not exist there); master stays the 5.1 version. Every fix's test was run against
@@ -98,24 +114,29 @@ Actions the person doing the upgrade must take, or know about, for this plugin:
 - What users will see: the Redmine 7 markers (circle arrows, diamond) instead of the green/red PNG arrows,
   a ↔ icon on days between start and due date, a legend line "issue active on this day", the blue circle
   around today, and closed issues struck through in the calendar like everywhere else in Redmine.
+- Also new for users (decision q2): an issue that runs through a whole month (or week on My page) now appears on
+  every day of it; long issues make the calendar fuller. One extra query per calendar page.
+- Versions keep showing on every day from the earliest start of their issues to their date (decision q1).
 
 ## Inventory of functions
 
-Run 2026-10-06 against `./.codex/start_server.sh` (production mode). PostgreSQL run in `docs/e2e/`, MariaDB run in
-`docs/e2e/mariadb/` (same scenarios, 0 problems), with redmine_people + redmine_agile in `docs/e2e/together/`, before
-pictures (master on 5.1) in `docs/e2e/before/`. `./.codex/e2e.sh`: smoke 10 screenshots 0 problems, core flows 6/0,
-plugin scenarios 5 scripts, 19 screenshots, 0 problems, on both databases.
+Run 2026-10-07 against `./.codex/start_server.sh` (production mode, PostgreSQL 16.15) in `docs/e2e/`:
+`./.codex/e2e.sh` smoke 10 screenshots 0 problems, core flows 6/0, plugin scenarios 6 scripts, 29 screenshots,
+0 problems (plus 2 cropped close-ups). Every screenshot opened. With 40 other GEOxyz plugins in `docs/e2e/together/`:
+every check of this plugin passes; the problems listed there are other plugins' (see findings). History:
+`docs/e2e/mariadb/` (MariaDB, 2026-10-06, before decision q2), `docs/e2e/before/` (master on Redmine 5.1).
 
 | function | how a user reaches it | scenario | screenshots |
 |---|---|---|---|
 | Issue shown on every day between start and due date, with a "between" marker; start/end/one-day markers; issues with only one date only on that date | Project > Calendar | `test/e2e/project-calendar.mjs` | `project-calendar-manager-month.png`, `project-calendar-between-entry.png` |
 | Legend line "issue active on this day" | Project > Calendar, below the calendar | `project-calendar.mjs` | `project-calendar-manager-month.png` |
 | Redmine 7 today indicator and version icon kept | Project > Calendar | `project-calendar.mjs` | `project-calendar-manager-month.png` |
-| Issue due years ahead: between on every later day of its first month | Project > Calendar | `project-calendar.mjs` | `project-calendar-manager-month.png`, `project-calendar-next-month-limitation.png` (limitation, below) |
+| Issue due years ahead: between on every later day, also in the following months | Project > Calendar | `project-calendar.mjs` | `project-calendar-manager-month.png`, `project-calendar-next-month-long-running.png` |
 | Same calendar per role: member without extra rights, non-member on public and private project, anonymous | Project > Calendar | `project-calendar.mjs` | `project-calendar-reporter-month.png`, `project-calendar-outsider-private-refused.png` (403), `project-calendar-anonymous-private-login.png` |
 | Cross-project calendar with project prefix, private issues only for members | Top menu > Calendar (`/issues/calendar`) | `global-calendar.mjs` | `global-calendar-admin.png`, `global-calendar-outsider.png` |
 | My page week calendar block | My page, block "Calendar" | `my-page-calendar.mjs` | `my-page-calendar-manager.png`, `my-page-calendar-block.png`, `my-page-calendar-outsider.png` (empty block) |
 | Tooltip and context menu on a between entry, edit through the menu, greyed actions for a reporter | Hover / right-click an entry | `context-menu.mjs` | `context-menu-tooltip.png`, `context-menu-manager-menu.png`, `context-menu-manager-priority-changed.png`, `context-menu-reporter-menu.png` |
+| Issues that start before and end after the displayed month or week, on every day as between; query filters and visibility apply (decision q2) | Project > Calendar, top menu > Calendar, My page | `spanning-issues.mjs`, `project-calendar.mjs` | `spanning-issues-admin-all-projects.png`, `spanning-issues-manager-project.png`, `spanning-issues-manager-filter.png`, `spanning-issues-manager-my-page.png`, `spanning-issues-reporter-project.png`, `spanning-issues-reporter-all-projects.png`, `spanning-issues-reporter-private-refused.png` (403), `spanning-issues-outsider-all-projects.png`, `spanning-issues-outsider-private-refused.png` (403), `spanning-issues-outsider-my-page.png` (empty), `project-calendar-next-month-long-running.png` |
 | Failure paths: calendar module off (403), role without view_calendar (403), invalid filter (error, no calendar, no legend), bad month/year, closed issue struck through, no plugin asset on other pages, assets served | Project > Calendar with these conditions | `failure-paths.mjs` | `failure-paths-module-off.png`, `failure-paths-no-view-calendar.png`, `failure-paths-invalid-query.png`, `failure-paths-bad-month.png`, `failure-paths-closed-issue.png`, `failure-paths-reporter-public.png` |
 
 The plugin has no permissions, settings, routes, API, mail, rake tasks or cron of its own; it only changes
@@ -123,9 +144,18 @@ how core's calendar (project, cross-project, My page) draws issues. Every screen
 
 ## Findings outside this plugin (not changed here)
 
-- Core: the calendar only fetches issues that start or end in the displayed range (`CalendarsController#show`,
-  `MyHelper#render_calendar_block`), so an issue that spans a whole month is not shown in that month, also not by
-  this plugin (`project-calendar-next-month-limitation.png`). Same on master and upstream. See open question 2.
+- Core: the calendar only fetches issues that start or end in the displayed range. Solved in this plugin by decision
+  q2 (`65d1a45`). redmine_reporter_dashboards builds its own week calendar with core's condition
+  (`reporter_project_pages_helper.rb:338`), so issues spanning that whole week stay missing there.
+- With all 42 GEOxyz plugins (2026-10-07), recursion from `alias_method` mixed with `prepend`, not in this plugin:
+  redmine_issue_field_visibility (`alias_method` on `IssueQuery#initialize_available_filters`) with redmine_agile
+  (`prepend`): SystemStackError on every issue query (issue list, calendar); redmine_tint_issues (`alias_method` on
+  `Issue#css_classes`) with redmine_agile: SystemStackError wherever an issue's CSS classes are drawn (calendar,
+  issue list); redmine_mail_digest (`alias_method` on `ProjectsHelper#project_settings_tabs`) with the others:
+  Project > Settings HTTP 500 (`docs/e2e/together/smoke-06.png`). These are for those plugins' sessions under
+  Jan's general decision; the combination run here leaves the first two out.
+- redmine_view_issue_description: the reporter gets 403 on an issue page in the combination
+  (`vid_authorize_issue_detail`), that plugin's own permission working as designed.
 - Core 7.0: on the cross-project calendar a version is drawn as "E2E project -" wrapped next to the link
   (`span.icon.icon-package` is a flex box); same markup as core, `global-calendar-admin.png`.
 - redmineup gem 1.1.13 (used by redmine_agile and redmine_people): `redmineup.css`, `calendars.css` and `money.css`
@@ -142,30 +172,37 @@ how core's calendar (project, cross-project, My page) draws issues. Every screen
 
 - Own review of the whole diff: one point, the version behaviour (open question 1); nothing else.
 - OpenAI review (`gpt-5`, range `8104c28..ada177b`): no findings, `docs/reviews/openai-2026-10-06-ada177b.md`.
+- 2026-10-07, own review of the new commits: nothing to change (added issues are disjoint from core's, one extra
+  query, filters and visibility through `@query`, guarded against adding twice).
+- OpenAI review (`gpt-5`, range `e737933..71befba`): two findings, both resolved as not a defect with the core
+  code that shows it (core fetches against the grid, not the month; `IssueQuery#issues` always includes
+  `:project`), `docs/reviews/openai-2026-10-07-71befba.md`.
 
-## Open questions for Jan
+## Decided by Jan
 
-1. **Versions on the days before their date.** `events=` also indexes versions from `Version#start_date` (the earliest
-   start date of their issues) to their date, so a version is drawn on every one of those days. That has been so
-   since upstream 0.0.1; the README speaks of issues only. Options: (a) keep, (b) issues only (one line,
-   `next unless event.is_a?(Issue)`). Built: (a), pinned by a test. Recommendation: (b), a version is a milestone,
-   and every day of a long version line clutters the calendar.
-2. **Issues spanning a whole month.** Core fetches only issues that start or end in view, so a long issue
-   disappears from the months in between, which is exactly the case this plugin is for. Options: (a) leave it,
-   (b) patch `CalendarsController#show` and `MyHelper#render_calendar_block` to fetch issues overlapping the range
-   (`start_date <= enddt AND due_date >= startdt`). Built: (a). Recommendation: (b) as a separate change with tests.
-3. **Marker style.** Built: Redmine 7 SVG markers and a ↔ SVG for "between", instead of the PNG arrows of
-   `a7d61a5`. Keeping the PNGs would mean hiding core's SVGs in cells and legend by CSS. Recommendation: keep SVG.
-4. **Redmine 5.1.** This branch needs Redmine 6.0+; master stays the 5.1 version. Recommendation: fine, GEOxyz
-   moves to 7.0.
+2026-10-07, in the coordinating session (docs/DECISIONS-2026-10-07.md). Final.
 
-Not testable here: nothing; the plugin has no external integration.
+General, for every GEOxyz plugin: GEOxyz goes straight to Redmine 7, no backports to 5.1, Redmine 5.1 compatibility
+is no longer a requirement; PostgreSQL 16 only (MariaDB runs no longer required); `prepend`, never `alias_method`,
+on core methods other plugins also patch; GitHub Actions manual only.
+
+1. **Versions on the days before their date** (q1). Jan chose A: "Zo laten, versies op elke dag" (Geen wijziging;
+   lange versies blijven de kalender vullen.). Kept, pinned by `test_version_is_shown_from_the_start_of_its_issues_to_its_date`.
+2. **Issues spanning a whole month** (q2). Jan chose B: "Aanpassen, als aparte wijziging met tests" (De kalender
+   haalt ook tickets op die de maand overlappen; de plugin past daarvoor twee stukken Redmine-code aan.). Built in
+   `65d1a45`, e2e in `067f37f`.
+3. **Marker style** (q3). Jan chose A: "De Redmine 7-iconen houden" (Ziet eruit als de rest van Redmine 7;
+   gebruikers zien wel andere markeringen dan ze gewend zijn.). Kept as built in `f63d833`.
+4. **Redmine 5.1** (was open question 4): settled by the general decision; this branch needs Redmine 6.0+, nothing
+   for 5.1.
+
+No open questions left. Not testable here: nothing; the plugin has no external integration.
 
 ## How to test
 
 ```sh
 ./.codex/redmine_clone.sh 7.0-stable-GEOxyz      # or 5.1-stable / 6.1-stable / 7.0-stable
-./.codex/test_setup.sh                                 # RMP_DB=mariadb for MariaDB, RMP_PROVISION_DB=0 if a server runs
+./.codex/test_setup.sh                                 # PostgreSQL; RMP_PROVISION_DB=0 if a server runs
 ./.codex/test_plugin.sh                                # minitest + rspec of this plugin
 ```
 
@@ -192,7 +229,7 @@ results quoted in the analysis come from it.
 1. **Start**: `git fetch && git checkout redmine70-migration && git pull`. Read this whole file,
    including the analysis report at the bottom. Do not reopen decisions recorded here.
 2. **Baseline, before you change anything**:
-   - the plugin's tests on Redmine 7.0-stable-GEOxyz with PostgreSQL and with MariaDB;
+   - the plugin's tests on Redmine 7.0-stable-GEOxyz with PostgreSQL;
    - a real running Redmine with this plugin (`./.codex/start_server.sh`) and the browser run
      (`./.codex/e2e.sh`: smoke over every page the plugin adds, plus the core issue flows).
    Write the numbers here. Something already broken now is a finding, not your regression.
@@ -204,9 +241,9 @@ results quoted in the analysis come from it.
 4. **GEOxyz changes**: go through the table above, one item at a time. Each kept or re-made change
    is its own commit with a test that proves it. Record the verdict in the table.
 5. **Work list**: then the numbered list, in order. One concern per commit.
-6. **Portability**: everything must run on Redmine's supported databases (PostgreSQL,
-   MySQL/MariaDB; SQLite where the plugin already supports it). Migrations must be reversible and
-   are run down and up on PostgreSQL and MariaDB.
+6. **Portability**: tests and migrations run on PostgreSQL 16, the database GEOxyz uses (decided by Jan
+   2026-10-07); keep SQL portable to MySQL/MariaDB where that costs nothing. Migrations must be reversible and
+   are run down and up on PostgreSQL.
 7. **Together**: run with the other GEOxyz plugins installed (the migration kit's harness, or
    `RMP_EXTRA_PLUGINS`). A failure that only appears in combination is a finding to record here.
 8. **End to end, visually, every function**: on the real Redmine from `start_server.sh`
@@ -225,7 +262,6 @@ results quoted in the analysis come from it.
      reads them; API through `t.page.request`) and record command and result.
    - Before pictures where behaviour or layout changes: the branch GEOxyz runs today, on
      Redmine 5.1, same scenarios, `RMP_E2E_OUT=docs/e2e/before`.
-   - Run the whole e2e set once on MariaDB as well (`RMP_DB=mariadb`, then `start_server.sh --reset`).
 9. **Independent review**: first your own, adversarial: re-read the whole diff as if someone
    else wrote it and you are paid to reject it. Then, **when `OPENAI_API_KEY` is set in the
    session**, `./.codex/openai_review.sh`: it sends the diff of this branch to an OpenAI model
@@ -270,8 +306,11 @@ results quoted in the analysis come from it.
   (on by default: `t.sudo()` in a scenario). The breaker list is in the migration kit's CHECKLIST.md.
 - **Locales**: keep the locales the plugin ships in sync; translate a new key by matching the
   closest existing key in the same file, not from scratch; do not add new languages.
-- **5.1 compatibility**: prefer fixes that also run on Redmine 5.1 so they can be merged early;
-  say so when a fix cannot.
+- **No 5.1** (decided by Jan 2026-10-07): GEOxyz goes straight to Redmine 7; no backports, no code paths only
+  for 5.1, nothing cherry-picked to the default branch or the branch production runs today.
+- **PostgreSQL only** (decided by Jan 2026-10-07): tests and e2e on PostgreSQL 16; keep SQL portable where it
+  costs nothing; a MariaDB-only problem is a note here, not a blocker.
+- **`prepend`, never `alias_method`** on a core method other plugins also patch (decided by Jan 2026-10-07).
 - **Git**: work on `redmine70-migration` only; never push to the default branch; never force-push
   a branch someone else uses. Descriptive commit messages (what and why). Push after every
   commit, together with the updated status in this file: a cloud session can stop at a usage
@@ -282,7 +321,7 @@ results quoted in the analysis come from it.
 ## Definition of done
 
 - All items of the work list are done or explicitly deferred with a reason, in this file.
-- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL and MariaDB
+- The plugin's tests are green on Redmine 7.0-stable-GEOxyz with PostgreSQL
   (numbers in this file); boot, production-like eager load, migrations up/down OK.
 - Every function in the inventory exercised end to end on a real running Redmine, with and
   without permissions and on its failure paths; `./.codex/e2e.sh` green; screenshots looked at,

@@ -1,6 +1,6 @@
 # failure-paths
 
-Run 2026-10-06T19:45:38.663Z against http://127.0.0.1:3000 (MariaDB 10.11, with redmine_people and redmine_agile redmine70-migration).
+Run 2026-10-07T16:13:06.628Z against http://127.0.0.1:3002 (PostgreSQL 16, with 40 other GEOxyz plugins on redmine70-migration, all but redmine_issue_field_visibility and redmine_tint_issues).
 
 | screenshot | user | URL | shows |
 |---|---|---|---|
@@ -16,6 +16,6 @@ Run 2026-10-06T19:45:38.663Z against http://127.0.0.1:3000 (MariaDB 10.11, with 
 - login manager: 404 image /assets/plugin_assets/redmineup/bullet_go.png
 - login manager: 404 image /assets/plugin_assets/redmineup/bullet_end.png
 - /projects/e2e-project/issues/calendar?set_filter=1&f[]=status_id&op[status_id]=* as manager: 404 image /assets/plugin_assets/redmineup/bullet_diamond.png
-- /projects/e2e-project/issues/calendar as reporter: 404 image /assets/plugin_assets/redmineup/bullet_go.png
 - /projects/e2e-project/issues/calendar as reporter: 404 image /assets/plugin_assets/redmineup/bullet_diamond.png
+- /projects/e2e-project/issues/calendar as reporter: 404 image /assets/plugin_assets/redmineup/bullet_go.png
 - /projects/e2e-project/issues/calendar as reporter: 404 image /assets/plugin_assets/redmineup/bullet_end.png

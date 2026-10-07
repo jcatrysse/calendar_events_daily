@@ -1,6 +1,6 @@
 # my-page-calendar
 
-Run 2026-10-06T19:45:49.509Z against http://127.0.0.1:3000 (MariaDB 10.11, with redmine_people and redmine_agile redmine70-migration).
+Run 2026-10-07T16:14:25.133Z against http://127.0.0.1:3002 (PostgreSQL 16, with 40 other GEOxyz plugins on redmine70-migration, all but redmine_issue_field_visibility and redmine_tint_issues).
 
 | screenshot | user | URL | shows |
 |---|---|---|---|

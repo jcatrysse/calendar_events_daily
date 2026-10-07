@@ -23,7 +23,7 @@ check(t, /Edit/.test(menu) && /Priority/.test(menu), `context menu offers edit a
 await t.shot('manager-menu', 'Manager: right-click on a between entry opens the issue context menu with all actions');
 
 await t.page.locator('#context-menu a.submenu', { hasText: 'Priority' }).hover();
-await t.page.locator('#context-menu a', { hasText: /^High$/ }).click();
+await t.page.locator('#context-menu a.submenu:text-is("Priority") ~ ul a', { hasText: /^High$/ }).click();
 await t.settle();
 t.check('set priority');
 await t.sudo();
@@ -35,7 +35,7 @@ await t.shot('manager-priority-changed', 'Manager: after "Priority > High" from 
 await t.page.mouse.move(0, 0);
 await entry().click({ button: 'right', position: { x: 12, y: 10 } });
 await t.page.locator('#context-menu a.submenu', { hasText: 'Priority' }).hover();
-await t.page.locator('#context-menu a', { hasText: /^Normal$/ }).click();
+await t.page.locator('#context-menu a.submenu:text-is("Priority") ~ ul a', { hasText: /^Normal$/ }).click();
 await t.settle();
 t.check('reset priority');
 

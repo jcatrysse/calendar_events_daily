@@ -1,6 +1,6 @@
 # spanning-issues
 
-Run 2026-10-07T16:00:59.590Z against http://127.0.0.1:3000.
+Run 2026-10-14T23:36:15.699Z against http://127.0.0.1:3000.
 
 | screenshot | user | URL | shows |
 |---|---|---|---|

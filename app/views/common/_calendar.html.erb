@@ -1,5 +1,7 @@
 <%= form_tag({}, :data => {:cm_url => issues_context_menu_path}) do -%>
 <%= hidden_field_tag 'back_url', url_for(:params => request.query_parameters), :id => nil %>
+<%# an issue is drawn on every day of its span: build its parts once per page, not once per day %>
+<% issue_parts = {} %>
 <ul class="cal">
   <li scope="col" title="<%= l(:label_week) %>" class="calhead week-number"></li>
   <% 7.times do |i| %>
@@ -20,15 +22,22 @@
           <% starting = day == i.start_date %>
           <% ending = day == i.due_date %>
           <% between = !starting && !ending %>
-          <%= tag.div class: [ i.css_classes, 'tooltip hascontextmenu', between: between, starting: starting, ending: ending] do %>
-            <%= "#{i.project} -" unless @project && @project == i.project %>
+          <% parts = issue_parts[i.id] ||= {
+               :css => i.css_classes,
+               :project => ("#{i.project} -" unless @project && @project == i.project),
+               :link => link_to_issue(i, :truncate => 30),
+               :tip => render_issue_tooltip(i),
+               :checkbox => check_box_tag('ids[]', i.id, false, :style => 'display:none;', :id => nil)
+             } %>
+          <%= tag.div class: [ parts[:css], 'tooltip hascontextmenu', between: between, starting: starting, ending: ending] do %>
+            <%= parts[:project] %>
             <%= sprite_icon('between', plugin: 'calendar_events_daily') if between %>
             <%= sprite_icon('bullet-go', rtl: true) if starting && starting != ending %>
             <%= sprite_icon('bullet-end', rtl: true) if ending && starting != ending %>
             <%= sprite_icon('bullet-go-end') if starting && ending %>
-            <%= link_to_issue i, :truncate => 30 %>
-            <span class="tip"><%= render_issue_tooltip i %></span>
-            <%= check_box_tag 'ids[]', i.id, false, :style => 'display:none;', :id => nil %>
+            <%= parts[:link] %>
+            <span class="tip"><%= parts[:tip] %></span>
+            <%= parts[:checkbox] %>
           <% end %>
         <% else %>
           <span class="icon icon-package">

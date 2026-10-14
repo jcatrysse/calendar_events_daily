@@ -92,4 +92,22 @@ class CalendarEventsDaily::CalendarHelperPatchTest < ActiveSupport::TestCase
     assert_equal [other], @calendar.events_on(Date.new(2026, 10, 13))
     assert_equal 1, @calendar.instance_variable_get(:@events_by_days)[Date.new(2026, 10, 7)].size
   end
+
+  def test_without_title_widgets_marks_titled_tags
+    html = '<strong>Assignee</strong>: <span role="img" class="avatar s13" title="Assignee">JS</span> ' \
+           '<img src="/a.png" title="Gravatar" alt=""> <a href="/issues/1">x title="y"</a>'.html_safe
+    result = CalendarEventsDaily.without_title_widgets(html)
+
+    assert result.html_safe?
+    assert_equal '<strong>Assignee</strong>: <span role="img" class="no-tooltip avatar s13" title="Assignee">JS</span> ' \
+                 '<img class="no-tooltip" src="/a.png" title="Gravatar" alt=""> <a href="/issues/1">x title="y"</a>', result
+  end
+
+  def test_without_title_widgets_leaves_unsafe_strings_alone
+    unsafe = '<span class="avatar" title="x"><script>alert(1)</script></span>'
+    result = CalendarEventsDaily.without_title_widgets(unsafe)
+
+    assert_not result.html_safe?
+    assert_equal unsafe, result
+  end
 end

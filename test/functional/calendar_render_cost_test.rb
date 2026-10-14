@@ -46,6 +46,23 @@ class CalendarEventsDaily::CalendarRenderCostTest < Redmine::ControllerTest
     assert_equal short[:css], long[:css], 'css_classes computed once per issue, not per day'
   end
 
+  def test_tooltips_add_no_title_widgets_per_day
+    # Redmine's setupHoverTooltips builds a jQuery UI tooltip for every [title]:not(.no-tooltip) on the
+    # page; inside the hidden issue tooltip (the assignee avatar) that would be one per day of every issue
+    counts_for_october
+
+    assert_select 'ul.cal span.tip [title]', :minimum => 1
+    assert_select 'ul.cal span.tip [title]:not(.no-tooltip)', 0
+    assert_select 'ul.cal span.tip .avatar.no-tooltip[title]', :count => 5
+  end
+
+  def test_tooltip_stays_escaped
+    @issue.update_columns(:subject => 'Long issue <script>alert("x")</script> & "quotes"')
+    counts_for_october
+
+    assert_not_includes response.body, '<script>alert("x")</script>'
+    assert_select 'ul.cal span.tip', :text => /<script>alert\("x"\)<\/script> & "quotes"/, :count => 5
+  end
 
   private
 

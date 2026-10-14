@@ -26,7 +26,7 @@
                :css => i.css_classes,
                :project => ("#{i.project} -" unless @project && @project == i.project),
                :link => link_to_issue(i, :truncate => 30),
-               :tip => render_issue_tooltip(i),
+               :tip => CalendarEventsDaily.without_title_widgets(render_issue_tooltip(i)),
                :checkbox => check_box_tag('ids[]', i.id, false, :style => 'display:none;', :id => nil)
              } %>
           <%= tag.div class: [ parts[:css], 'tooltip hascontextmenu', between: between, starting: starting, ending: ending] do %>

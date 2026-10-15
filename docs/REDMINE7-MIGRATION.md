@@ -23,7 +23,7 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | After sync | n.v.t. |
 | Complexity (1 trivial .. 5 rewrite) | 2 |
 | Measured on | Redmine 7.0.1 (7.0-stable-GEOxyz @ 8067e23), Rails 8.1.3.1, Ruby 3.3.6, PostgreSQL 16.15 (production database of GEOxyz). Earlier runs on MariaDB 10.11.14, Redmine 6.1-stable and 5.1-stable (before pictures) are kept as history |
-| Migration session | 2026-10-06 work list, 2026-10-07 Jan's decisions built: tests green on PostgreSQL alone and with 40 other GEOxyz plugins, e2e green, OpenAI review resolved |
+| Migration session | 2026-10-06 work list, 2026-10-07 Jan's decisions built, 2026-10-14 performance (calendar 6.3 s -> 1.2 s server, 17 s -> 4 s browser): tests green on PostgreSQL alone (30 runs) and with 47 other GEOxyz plugins, e2e green, OpenAI reviews resolved |
 | Plugin version | 0.0.3, `requires_redmine 6.0.0` (was 0.0.2, 5.1.0) |
 
 ## Already on this branch
@@ -42,6 +42,10 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | `65d1a45` | Decision q2: issues that start before and end after the displayed month (calendar) or week (My page) are shown too |
 | `067f37f` | E2E scenario `spanning-issues.mjs`, seed, screenshots (PostgreSQL) |
 | `71befba` | Context-menu scenario robust against other plugins' menu items; e2e run with 40 GEOxyz plugins |
+| `ec6e408` | Plan: Jan's decisions recorded |
+| `7f1a0a8` | Performance (2026-10-14): each issue's entry (CSS classes, link, tooltip, checkbox) built once per page, not once per day |
+| `ea3e45c` | Performance: no jQuery UI tooltip widget per day for the titled avatar inside the issue tooltip |
+| `9d9c295` | Before/after evidence with 400 multi-day issues (`docs/e2e/perf/`), full e2e re-run |
 
 ## Work list for the migration session
 
@@ -73,6 +77,10 @@ Found during the session:
   index. Tests: `calendars_controller_test.rb` (html, xhr, filter, private project, no duplicates),
   `my_controller_test.rb` (whole week, non-member project), `calendar_helper_patch_test.rb` (index rebuilt);
   the four new behaviour tests fail without the change. E2E `spanning-issues.mjs`.
+- DONE `7f1a0a8`, `ea3e45c` (2026-10-14, performance task from the coordinating session under Jan's instruction
+  to make the plugin set perform on Redmine 7). See "Performance" below. Tests: `calendar_render_cost_test.rb`
+  (tooltip renders and `css_classes` calls equal for a span of 5 and 20 days; no widget-eligible `[title]` in the
+  tooltips; escaping kept), `calendar_helper_patch_test.rb` (`without_title_widgets`); they fail without the change.
 - General decision `prepend`, never `alias_method`: this plugin only uses `prepend` (Calendar, CalendarsController,
   MyHelper); no other GEOxyz plugin patches `CalendarsController#show`/`#render` or
   `MyHelper#render_calendar_block` (checked in all 42 `redmine70-migration` branches).
@@ -142,6 +150,32 @@ every check of this plugin passes; the problems listed there are other plugins' 
 The plugin has no permissions, settings, routes, API, mail, rake tasks or cron of its own; it only changes
 how core's calendar (project, cross-project, My page) draws issues. Every screenshot was opened and checked.
 
+## Performance (2026-10-14)
+
+Measured on Redmine 7.0.1 production, PostgreSQL 16.15, admin, the e2e seed plus 400 issues of 3 to 43 days around
+the current month (`docs/e2e/perf/seed_perf.rb`): 6,811 calendar entries, 6,307 of them between days. Server time is
+the median of 5 with curl (`docs/e2e/perf/measure.sh`); browser times are Chromium headless navigation timing.
+
+| | server `/issues/calendar` | server project calendar | browser load event (project calendar) |
+|---|---|---|---|
+| this plugin only, before (`7f1a0a8~1`) | 6.35 s | 6.29 s | 17.3 s (20.4 s in `perf-before-month.png`) |
+| this plugin only, after (`ea3e45c`) | 1.21 s | 1.22 s | 4.1 to 4.4 s |
+| with 46 other GEOxyz plugins, before | 7.82 s | 7.73 s | 26.9 s |
+| with 46 other GEOxyz plugins, after | 1.38 s | 1.30 s | 5.9 to 6.3 s |
+
+- Server: an issue is drawn on every day of its span, and each entry rendered its tooltip, CSS classes, link and
+  checkbox again (other plugins' costs in those, such as tinted CSS classes or avatars, multiplied with it). The
+  parts are now built once per issue per page; the HTML is the same byte for byte apart from CSRF tokens.
+- Browser: Redmine's `setupHoverTooltips` builds a jQuery UI tooltip for every `[title]` on load; each issue
+  tooltip holds the assignee's letter avatar with `title="Assignee"`, so 6,704 widgets and 11 s of JavaScript. Those
+  elements now carry `no-tooltip`; hovering the avatar inside an issue tooltip shows the browser's own title instead
+  of the styled one, nothing else changes.
+- Not changed, an option: the page stays about 8 MB of HTML (230 KB gzipped), 3.8 MB of it the hidden tooltips,
+  one per entry. Rendering the tooltip only on the start and due day, or loading it on hover, would cut that but
+  changes what users see on between days; not done without Jan.
+- Screenshots: `docs/e2e/perf/perf-before-month.png`, `perf-after-month.png` (identical apart from the times in
+  the caption), `perf-before-tooltip.png`, `perf-after-tooltip.png`.
+
 ## Findings outside this plugin (not changed here)
 
 - Core: the calendar only fetches issues that start or end in the displayed range. Solved in this plugin by decision
@@ -154,6 +188,12 @@ how core's calendar (project, cross-project, My page) draws issues. Every screen
   issue list); redmine_mail_digest (`alias_method` on `ProjectsHelper#project_settings_tabs`) with the others:
   Project > Settings HTTP 500 (`docs/e2e/together/smoke-06.png`). These are for those plugins' sessions under
   Jan's general decision; the combination run here leaves the first two out.
+- 2026-10-14, with all 47 other GEOxyz plugins (46 on the server: redmine_reporter `master` does not boot in
+  production on Rails 8.1, `enum` with the old syntax in `app/models/report_template.rb:26`): this plugin's tests
+  `30 runs, 146 assertions, 0 failures, 0 errors, 0 skips`; e2e: every check of this plugin passes. Problems from
+  other plugins still on `master` (no `redmine70-migration` branch): issue page HTTP 500 (`details_to_strings`,
+  redmine_drive with redmine_checklists) and Project > Settings HTTP 500 (`project_settings_tabs`,
+  redmine_questions with the others). redmine_issue_field_visibility and redmine_tint_issues no longer recurse.
 - redmine_view_issue_description: the reporter gets 403 on an issue page in the combination
   (`vid_authorize_issue_detail`), that plugin's own permission working as designed.
 - Core 7.0: on the cross-project calendar a version is drawn as "E2E project -" wrapped next to the link
@@ -172,8 +212,13 @@ how core's calendar (project, cross-project, My page) draws issues. Every screen
 
 - Own review of the whole diff: one point, the version behaviour (open question 1); nothing else.
 - OpenAI review (`gpt-5`, range `8104c28..ada177b`): no findings, `docs/reviews/openai-2026-10-06-ada177b.md`.
+- 2026-10-14, own review of the performance commits: the per-issue parts depend only on the issue and the
+  current user, never on the day; `without_title_widgets` returns non-safe input unchanged and only adds a class
+  to start tags of HTML Redmine escaped (a subject with `<script>` and quotes stays escaped, tested).
 - 2026-10-07, own review of the new commits: nothing to change (added issues are disjoint from core's, one extra
   query, filters and visibility through `@query`, guarded against adding twice).
+- OpenAI review (`gpt-5`, range `de8c2ea..9d9c295`, the performance commits): no findings,
+  `docs/reviews/openai-2026-10-14-9d9c295.md`.
 - OpenAI review (`gpt-5`, range `e737933..71befba`): two findings, both resolved as not a defect with the core
   code that shows it (core fetches against the grid, not the month; `IssueQuery#issues` always includes
   `:project`), `docs/reviews/openai-2026-10-07-71befba.md`.

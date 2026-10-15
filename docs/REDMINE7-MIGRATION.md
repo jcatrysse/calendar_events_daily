@@ -48,7 +48,7 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | `9d9c295` | Before/after evidence with 400 multi-day issues (`docs/e2e/perf/`), full e2e re-run |
 | `e6834c2` | Plan: performance results |
 | `4c71112` | Decision 2026-10-15: full entry (tooltip, context menu) on the start and due day only, just the link in between |
-| (this commit) | E2E and plan for that decision |
+| `c3b72ca`, `c21ab4f` | E2E, perf evidence and plan for that decision; OpenAI review of `e6834c2..c21ab4f`: no findings |
 
 ## Work list for the migration session
 
@@ -230,6 +230,9 @@ the median of 5 with curl (`docs/e2e/perf/measure.sh`); browser times are Chromi
 
 - Own review of the whole diff: one point, the version behaviour (open question 1); nothing else.
 - OpenAI review (`gpt-5`, range `8104c28..ada177b`): no findings, `docs/reviews/openai-2026-10-06-ada177b.md`.
+- OpenAI review (`gpt-5`, range `e6834c2..c21ab4f`, decision of 2026-10-15): no findings,
+  `docs/reviews/openai-2026-10-15-c21ab4f.md`. Tests alone and with all other plugins: `30 runs, 152 assertions,
+  0 failures, 0 errors, 0 skips`.
 - 2026-10-15, own review of `4c71112`: the parts for the full entry are built lazily, only for issues that have
   a start or due day in view; the between entry outputs only escaped project name and the core link.
 - 2026-10-14, own review of the performance commits: the per-issue parts depend only on the issue and the

@@ -23,21 +23,31 @@
           <% ending = day == i.due_date %>
           <% between = !starting && !ending %>
           <% parts = issue_parts[i.id] ||= {
-               :css => i.css_classes,
                :project => ("#{i.project} -" unless @project && @project == i.project),
-               :link => link_to_issue(i, :truncate => 30),
-               :tip => CalendarEventsDaily.without_title_widgets(render_issue_tooltip(i)),
-               :checkbox => check_box_tag('ids[]', i.id, false, :style => 'display:none;', :id => nil)
+               :link => link_to_issue(i, :truncate => 30)
              } %>
-          <%= tag.div class: [ parts[:css], 'tooltip hascontextmenu', between: between, starting: starting, ending: ending] do %>
-            <%= parts[:project] %>
-            <%= sprite_icon('between', plugin: 'calendar_events_daily') if between %>
-            <%= sprite_icon('bullet-go', rtl: true) if starting && starting != ending %>
-            <%= sprite_icon('bullet-end', rtl: true) if ending && starting != ending %>
-            <%= sprite_icon('bullet-go-end') if starting && ending %>
-            <%= parts[:link] %>
-            <span class="tip"><%= parts[:tip] %></span>
-            <%= parts[:checkbox] %>
+          <% if between %>
+            <%# days in between: just the link, the full entry is on the start and due day %>
+            <%= tag.div class: 'issue between' do %>
+              <%= parts[:project] %>
+              <%= sprite_icon('between', plugin: 'calendar_events_daily') %>
+              <%= parts[:link] %>
+            <% end %>
+          <% else %>
+            <% full = parts[:full] ||= {
+                 :css => i.css_classes,
+                 :tip => CalendarEventsDaily.without_title_widgets(render_issue_tooltip(i)),
+                 :checkbox => check_box_tag('ids[]', i.id, false, :style => 'display:none;', :id => nil)
+               } %>
+            <%= tag.div class: [ full[:css], 'tooltip hascontextmenu', starting: starting, ending: ending] do %>
+              <%= parts[:project] %>
+              <%= sprite_icon('bullet-go', rtl: true) if starting && starting != ending %>
+              <%= sprite_icon('bullet-end', rtl: true) if ending && starting != ending %>
+              <%= sprite_icon('bullet-go-end') if starting && ending %>
+              <%= parts[:link] %>
+              <span class="tip"><%= full[:tip] %></span>
+              <%= full[:checkbox] %>
+            <% end %>
           <% end %>
         <% else %>
           <span class="icon icon-package">

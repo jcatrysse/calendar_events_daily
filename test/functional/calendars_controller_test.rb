@@ -14,16 +14,21 @@ class CalendarEventsDaily::CalendarsControllerTest < Redmine::ControllerTest
     get :show, :params => {:project_id => 1, :year => 2026, :month => 10}
     assert_response :success
 
-    assert_select 'ul.cal div.issue.hascontextmenu.tooltip', :text => /Spanning issue/, :count => 5
+    assert_select 'ul.cal div.issue', :text => /Spanning issue/, :count => 5
+    # full entry (tooltip, context menu) on the start and due day only (decision Jan 2026-10-15)
+    assert_select 'ul.cal div.issue.hascontextmenu.tooltip', :text => /Spanning issue/, :count => 2
     assert_select 'ul.cal div.issue.starting', :text => /Spanning issue/, :count => 1
     assert_select 'ul.cal div.issue.ending', :text => /Spanning issue/, :count => 1
     assert_select 'ul.cal div.issue.between', :text => /Spanning issue/, :count => 3 do
       # one marker per day, and not a core start or end marker
       assert_select 'svg.icon-svg', :count => 3
       assert_select 'svg use[href*=?][href$=?]', 'plugin_assets/calendar_events_daily/icons', '#icon--between'
-      assert_select 'a.issue[href=?]', "/issues/#{@issue.id}"
-      assert_select 'input[name=?][type=checkbox][value=?]', 'ids[]', @issue.id.to_s
+      assert_select 'a.issue[href=?]', "/issues/#{@issue.id}", :count => 3
+      # just the link: no hidden tooltip, no checkbox
+      assert_select 'span.tip', 0
+      assert_select 'input', 0
     end
+    assert_select 'ul.cal div.issue.between.hascontextmenu, ul.cal div.issue.between.tooltip', 0
   end
 
   def test_show_keeps_core_markers_on_start_and_due_date

@@ -1,7 +1,8 @@
 require File.expand_path('../../test_helper', __FILE__)
 
 # Each issue on the calendar is drawn on every day of its span; the work per issue (tooltip,
-# CSS classes, link) must be done once per page, not once per day.
+# CSS classes, link) must be done once per page, not once per day, and only the start and due
+# day carry the full entry with its hidden tooltip (decision Jan 2026-10-15).
 class CalendarEventsDaily::CalendarRenderCostTest < Redmine::ControllerTest
   tests CalendarsController
 
@@ -44,6 +45,10 @@ class CalendarEventsDaily::CalendarRenderCostTest < Redmine::ControllerTest
     assert_equal 1, short[:tooltip]
     assert_equal short[:tooltip], long[:tooltip], 'tooltip rendered once per issue, not per day'
     assert_equal short[:css], long[:css], 'css_classes computed once per issue, not per day'
+    assert_equal 2, short[:tips], 'hidden tooltips in the page: start and due day only'
+    assert_equal short[:tips], long[:tips], 'hidden tooltips in the page do not grow with the span'
+    puts "PERDAY #{(long[:html_size] - short[:html_size]) / 15}" if ENV['CED_DEBUG']
+    assert_operator (long[:html_size] - short[:html_size]) / 15, :<, 500, 'an extra day in between costs less than 500 bytes of HTML'
   end
 
   def test_tooltips_add_no_title_widgets_per_day
@@ -53,15 +58,16 @@ class CalendarEventsDaily::CalendarRenderCostTest < Redmine::ControllerTest
 
     assert_select 'ul.cal span.tip [title]', :minimum => 1
     assert_select 'ul.cal span.tip [title]:not(.no-tooltip)', 0
-    assert_select 'ul.cal span.tip .avatar.no-tooltip[title]', :count => 5
+    assert_select 'ul.cal span.tip .avatar.no-tooltip[title]', :count => 2
   end
 
   def test_tooltip_stays_escaped
     @issue.update_columns(:subject => 'Long issue <script>alert("x")</script> & "quotes"')
     counts_for_october
 
-    assert_not_includes response.body, '<script>alert("x")</script>'
-    assert_select 'ul.cal span.tip', :text => /<script>alert\("x"\)<\/script> & "quotes"/, :count => 5
+    assert_not_includes response.body, '<script>alert'
+    assert_select 'ul.cal span.tip', :text => /<script>alert\("x"\)<\/script> & "quotes"/, :count => 2
+    assert_select 'ul.cal div.issue.between', :text => /Long issue <script>alert/, :count => 3
   end
 
   private
@@ -73,10 +79,12 @@ class CalendarEventsDaily::CalendarRenderCostTest < Redmine::ControllerTest
     counts = Thread.current[:calendar_events_daily_counts].dup
     Thread.current[:calendar_events_daily_counts] = nil
     counts[:entries] = css_select('ul.cal div.issue').count {|div| div.text.include?('Long issue')}
-    # every entry is still a full entry: tooltip, checkbox for the context menu
-    assert_select 'ul.cal div.issue.hascontextmenu', :text => /Long issue/, :count => counts[:entries] do
-      assert_select 'span.tip', :count => counts[:entries]
-      assert_select 'input[name=?][value=?]', 'ids[]', @issue.id.to_s, :count => counts[:entries]
+    counts[:tips] = css_select('ul.cal div.issue span.tip').count {|tip| tip.text.include?('Long issue')}
+    counts[:html_size] = response.body.bytesize
+    # start and due day: full entry with tooltip and the checkbox for the context menu
+    assert_select 'ul.cal div.issue.hascontextmenu', :text => /Long issue/, :count => 2 do
+      assert_select 'span.tip', :count => 2
+      assert_select 'input[name=?][value=?]', 'ids[]', @issue.id.to_s, :count => 2
     end
     counts
   end

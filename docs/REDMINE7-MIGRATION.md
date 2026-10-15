@@ -46,6 +46,9 @@ what is left. Written 2026-10-06 from a measured analysis (report at the bottom)
 | `7f1a0a8` | Performance (2026-10-14): each issue's entry (CSS classes, link, tooltip, checkbox) built once per page, not once per day |
 | `ea3e45c` | Performance: no jQuery UI tooltip widget per day for the titled avatar inside the issue tooltip |
 | `9d9c295` | Before/after evidence with 400 multi-day issues (`docs/e2e/perf/`), full e2e re-run |
+| `e6834c2` | Plan: performance results |
+| `4c71112` | Decision 2026-10-15: full entry (tooltip, context menu) on the start and due day only, just the link in between |
+| (this commit) | E2E and plan for that decision |
 
 ## Work list for the migration session
 
@@ -81,6 +84,13 @@ Found during the session:
   to make the plugin set perform on Redmine 7). See "Performance" below. Tests: `calendar_render_cost_test.rb`
   (tooltip renders and `css_classes` calls equal for a span of 5 and 20 days; no widget-eligible `[title]` in the
   tooltips; escaping kept), `calendar_helper_patch_test.rb` (`without_title_widgets`); they fail without the change.
+- DONE `4c71112` (decision Jan 2026-10-15): only the start and due day carry the full entry (CSS classes,
+  hidden tooltip, checkbox for the context menu); the days in between show the yellow box with the between marker,
+  the project prefix where core shows it and the issue link (which keeps its own classes, so a closed issue stays
+  struck through). Tests changed to the decided behaviour (`calendars_controller_test.rb`,
+  `calendar_render_cost_test.rb`: 2 hidden tooltips for a span of 5 and of 20 days, an extra day in between costs
+  353 bytes); the escaping test is kept and now covers the between entries. E2E: `context-menu.mjs`
+  (`context-menu-between-hover.png`).
 - General decision `prepend`, never `alias_method`: this plugin only uses `prepend` (Calendar, CalendarsController,
   MyHelper); no other GEOxyz plugin patches `CalendarsController#show`/`#render` or
   `MyHelper#render_calendar_block` (checked in all 42 `redmine70-migration` branches).
@@ -170,9 +180,17 @@ the median of 5 with curl (`docs/e2e/perf/measure.sh`); browser times are Chromi
   tooltip holds the assignee's letter avatar with `title="Assignee"`, so 6,704 widgets and 11 s of JavaScript. Those
   elements now carry `no-tooltip`; hovering the avatar inside an issue tooltip shows the browser's own title instead
   of the styled one, nothing else changes.
-- Not changed, an option: the page stays about 8 MB of HTML (230 KB gzipped), 3.8 MB of it the hidden tooltips,
-  one per entry. Rendering the tooltip only on the start and due day, or loading it on hover, would cut that but
-  changes what users see on between days; not done without Jan.
+- 2026-10-15, decided by Jan: the full entry (with its hidden tooltip) only on the start and due day, just the
+  link in between (`4c71112`). Same seed, with the 46 other plugins, median of 5:
+
+  | | HTML `/issues/calendar` | gzipped | server `/issues/calendar` | browser load (project calendar) | DOM nodes |
+  |---|---|---|---|---|---|
+  | before (`e6834c2`) | 8,508,760 bytes | 245,785 | 1.02 s | 5.0 to 5.9 s | 150,477 |
+  | after (`4c71112`) | 3,145,065 bytes | 109,382 | 0.81 s | 2.5 to 2.8 s | 37,053 |
+
+  Screenshots `docs/e2e/perf/perf-link-between-*.png` (month, hover on a between entry: no tooltip, hover on a
+  start-day entry: tooltip). Consequence to know: an issue that starts before and ends after the displayed month
+  has no full entry in that month, so no tooltip and no context menu there; its link opens the issue.
 - Screenshots: `docs/e2e/perf/perf-before-month.png`, `perf-after-month.png` (identical apart from the times in
   the caption), `perf-before-tooltip.png`, `perf-after-tooltip.png`.
 
@@ -212,6 +230,8 @@ the median of 5 with curl (`docs/e2e/perf/measure.sh`); browser times are Chromi
 
 - Own review of the whole diff: one point, the version behaviour (open question 1); nothing else.
 - OpenAI review (`gpt-5`, range `8104c28..ada177b`): no findings, `docs/reviews/openai-2026-10-06-ada177b.md`.
+- 2026-10-15, own review of `4c71112`: the parts for the full entry are built lazily, only for issues that have
+  a start or due day in view; the between entry outputs only escaped project name and the core link.
 - 2026-10-14, own review of the performance commits: the per-issue parts depend only on the issue and the
   current user, never on the day; `without_title_widgets` returns non-safe input unchanged and only adds a class
   to start tags of HTML Redmine escaped (a subject with `<script>` and quotes stays escaped, tested).
@@ -224,6 +244,10 @@ the median of 5 with curl (`docs/e2e/perf/measure.sh`); browser times are Chromi
   `:project`), `docs/reviews/openai-2026-10-07-71befba.md`.
 
 ## Decided by Jan
+
+2026-10-15, through the coordinating session: show the full entry (tooltip, CSS classes, checkbox) only on an
+issue's start day and due day; on the days in between render just the link, without the hidden tooltip. Built in
+`4c71112`.
 
 2026-10-07, in the coordinating session (docs/DECISIONS-2026-10-07.md). Final.
 
